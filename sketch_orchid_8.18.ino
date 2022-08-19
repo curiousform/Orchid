@@ -3,7 +3,6 @@
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
-//test change for github!!!
 // bounce time in ms
 int bounceInterval = 1000;
 // debouncer for each sensor pin used
@@ -11,8 +10,6 @@ Bounce bouncer[30] = Bounce();
 
 // Pin of first sensor
 int pinStart = 2;
-//  Counter var for how many people are sitting down
-int counter = 0;
 
 // Total # Of sensor pins
 int pinCount = 30;
@@ -45,6 +42,16 @@ int eEggChan = 4;
 int eEgg = 100;
 //  Start MIDI note for lighting signals
 int litStart = 60;
+//  Start MIDI note for audio signals
+int audStart = 60;
+
+//  Counter var for how many people are sitting down
+int counter = 0;
+
+//  COUNTER THRESHOLDS FOR ADDING MORE AUDIO LAYERS
+int layer[6] = {2,4,8,12,18,24};//24 is for party mode
+int layerCount = sizeof(layer);
+
 
 void setup()
 {
@@ -61,12 +68,14 @@ void setup()
 
 void loop()
 {
+
+  
   for (int i = 0; i < pinCount; i++)
   {
     bouncer[i].update();
    
     if (bouncer[i].changed())
-    {
+    {      
       buttonState[i] = bouncer[i].read();
       // Pin pairing logic (Quantum Enganglement)
       if ((i < multiCount))
@@ -92,7 +101,7 @@ void loop()
         MIDI.sendNoteOn(i + litStart, 120, litChan);
         counter++;
       }
-      if ((i < dualCount) && (buttonState[i] != HIGH))
+      else if ((i < dualCount) && (buttonState[i] != HIGH))
       {
         MIDI.sendNoteOff(i + litStart, 0, litChan);
         counter--;
@@ -106,11 +115,35 @@ void loop()
       }
 
       // Easter egg OFF trigger
-      if ((i >= dualCount) && (buttonState[i] != HIGH))
+      else if ((i >= dualCount) && (buttonState[i] != HIGH))
       {
         MIDI.sendNoteOn(i + eEgg - dualCount + eEggCount, 120, eEggChan);
         MIDI.sendNoteOff(i + eEgg - dualCount + eEggCount, 0, eEggChan);
       }
+
+      for (int i = 0; i < layerCount-1; i++)
+      {
+        if(layer[i] <= counter < layer[i + 1])
+        {
+          MIDI.sendNoteOn(i + audStart, 120, audChan);
+          MIDI.sendNoteOff(i + audStart, 0, audChan);
+        }
+        else
+        {
+          MIDI.sendNoteOn(i + audStart + layerCount, 120, audChan);
+          MIDI.sendNoteOff(i + audStart + layerCount, 0, audChan);
+         }
+       }
+     if (layer[5] == counter)
+     {
+      MIDI.sendNoteOn(5 + audStart, 120, audChan);
+      MIDI.sendNoteOff(5 + audStart, 0, audChan);
+     }
+     else
+     {
+      MIDI.sendNoteOn(5 + audStart + layerCount, 120, audChan);
+      MIDI.sendNoteOff(5 + audStart + layerCount, 0, audChan);
+     }
     }
   }
 }
