@@ -1,81 +1,114 @@
 #include <Bounce2.h>
-#include <MIDI.h> // Include MIDI Library
+#include <MIDI.h>
 
+MIDI_CREATE_DEFAULT_INSTANCE();
 
-MIDI_CREATE_DEFAULT_INSTANCE(); // Create an instance of the midi library
-
-
+// bounce time in ms
 int bounceInterval = 1000;
+// debouncer for each sensor pin used
+Bounce bouncer[30] = Bounce();
 
+// Pin of first sensor
+int pinStart = 2;
+//  Counter var for how many people are sitting down
+int counter = 0;
+
+// Total # Of sensor pins
 int pinCount = 30;
-int dualCount = 24;
-int buttonState [30];
-int lastButtonState [30];
-
-int multiCount = 12;
-int multiState [12];
-int lastMultiState [12];
-
-int eEgg = 100; //easter egg start pin
+//  6 of them are easter eggs
 int eEggCount = 6;
+//  That leaves us with 24 pins
+int dualCount = (pinCount - eEggCount);
+//  Pairing them up we have 12
+int multiCount = (dualCount / 2);
 
+//  storage vars for button states
+int buttonState[30];
+int lastButtonState[30];
+//  Storage vars for multiState
+int lastMultiState[12];
+int multiState[12];
+
+//  MIDI CHANNEL DEFS
+//  MIDI channel for Lighting Signals
 int litChan = 1;
+//  MIDI Channel for paired sensor signals
 int multiChan = 2;
+// MIDI Channel for audio signals
 int audChan = 3;
+//  MIDI Channel for easter Eggs
 int eEggChan = 4;
 
+//  MIDI START NOTES
+//  Easter Egg Start MIDI Note
+int eEgg = 100;
+//  Start MIDI note for lighting signals
 int litStart = 60;
 
-int pinStart = 2; //pin of first sensor
+void setup()
+{
+  // Begin MIDI and listen to all channels
+  MIDI.begin(MIDI_CHANNEL_OMNI);
 
-Bounce bouncer[30];
-
-
-void setup() {
-   MIDI.begin(MIDI_CHANNEL_OMNI); // Begin MIDI and listen to all channels
-   for (int i = pinStart; i < pinCount+pinStart; i++) {
+  for (int i = pinStart; i < pinCount + pinStart; i++)
+  {
     pinMode(i, INPUT);
     bouncer[i].attach(i, INPUT);
     bouncer[i].interval(bounceInterval);
-   }
-  
+  }
 }
-void loop() {
-  for (int i = 0; i < pinCount; i++){
-    bouncer[i].update();
-    buttonState [i] = bouncer[i].read();
-    if (bouncer[i].changed()) {  // compare the buttonState to its previous state
-     if ((i < dualCount) && (buttonState [i] == HIGH)){ 
-      MIDI.sendNoteOn(i+litStart, 120, litChan); // Send note i on with a velocity of 120 and on lighting channel 1
-     }
-     if ((i < dualCount) && (buttonState [i] != HIGH)) {
-      MIDI.sendNoteOff(i+litStart, 0, litChan); 
-     }
 
-     
-     if ((i >= dualCount) && (buttonState [i] == HIGH)){ //easter egg start 
-      MIDI.sendNoteOn(i+eEgg-dualCount, 120, eEggChan);
-      MIDI.sendNoteOff(i+eEgg-dualCount, 0, eEggChan);
-     }
-     if ((i >= dualCount) && (buttonState [i] != HIGH)) {
-      MIDI.sendNoteOn(i+eEgg-dualCount+eEggCount, 120, eEggChan);
-      MIDI.sendNoteOff(i+eEgg-dualCount+eEggCount, 0, eEggChan);
-     }
-    }
-  }
-  
-  for (int i = 0; i < multiCount; i++){
-   bouncer[i].update();
-   bouncer[i+multiCount].update();
-   buttonState [i] = bouncer[i].read();
-   buttonState [i+multiCount] = bouncer[i+multiCount].read();
-   if (bouncer[i].changed() || bouncer[i+multiCount].changed() {
-    if ((buttonState [i] == buttonState [i+multiCount]) && (buttonState [i] == HIGH)){
-      MIDI.sendNoteOn(i+litStart, 120, multiChan); // Send note i on with a velocity of 120 and on lighting channel 1
+void loop()
+{
+  for (int i = 0; i < pinCount; i++)
+  {
+    bouncer[i].update();
+    buttonState[i] = bouncer[i].read();
+    if (bouncer[i].changed())
+    {
+      // Pin pairing logic (Quantum Enganglement)
+      if ((i < multiCount))
+      {
+        if (bouncer[i].changed() || bouncer[i + multiCount].changed())
+        {
+          if ((buttonState[i] == buttonState[i + multiCount]) && (buttonState[i] == HIGH))
+          {
+            // sendNoteX(note, velocity, midiChannel)
+            MIDI.sendNoteOn(i + litStart, 120, multiChan);
+          }
+          else
+          {
+            MIDI.sendNoteOff(i + litStart, 0, multiChan);
+          }
+        }
       }
-     else {                       
-      MIDI.sendNoteOff(i+litStart, 0, multiChan); //MIDI.sendNoteOff(i+pinCount, 0, 1); if different note needed
-     }
+
+      // If somebody sits down on any sensor thats non easter egg
+      // Then send lighting midi note
+      if ((i < dualCount) && (buttonState[i] == HIGH))
+      {
+        MIDI.sendNoteOn(i + litStart, 120, litChan);
+        counter++
+      }
+      if ((i < dualCount) && (buttonState[i] != HIGH))
+      {
+        MIDI.sendNoteOff(i + litStart, 0, litChan);
+        counter--
+      }
+
+      // Easter egg ON trigger
+      if ((i >= dualCount) && (buttonState[i] == HIGH))
+      {
+        MIDI.sendNoteOn(i + eEgg - dualCount, 120, eEggChan);
+        MIDI.sendNoteOff(i + eEgg - dualCount, 0, eEggChan);
+      }
+
+      // Easter egg OFF trigger
+      if ((i >= dualCount) && (buttonState[i] != HIGH))
+      {
+        MIDI.sendNoteOn(i + eEgg - dualCount + eEggCount, 120, eEggChan);
+        MIDI.sendNoteOff(i + eEgg - dualCount + eEggCount, 0, eEggChan);
+      }
     }
   }
-}  
+}
