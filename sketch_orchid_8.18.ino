@@ -51,10 +51,10 @@ void setup()
   // Begin MIDI and listen to all channels
   MIDI.begin(MIDI_CHANNEL_OMNI);
 
-  for (int i = pinStart; i < pinCount + pinStart; i++)
+  for (int i = 0; i < pinCount; i++)
   {
-    pinMode(i, INPUT);
-    bouncer[i].attach(i, INPUT);
+    pinMode(i + pinStart, INPUT);
+    bouncer[i].attach(i + pinStart, INPUT);
     bouncer[i].interval(bounceInterval);
   }
 }
@@ -64,9 +64,10 @@ void loop()
   for (int i = 0; i < pinCount; i++)
   {
     bouncer[i].update();
-    buttonState[i] = bouncer[i].read();
+   
     if (bouncer[i].changed())
     {
+      buttonState[i] = bouncer[i].read();
       // Pin pairing logic (Quantum Enganglement)
       if ((i < multiCount))
       {
@@ -89,12 +90,12 @@ void loop()
       if ((i < dualCount) && (buttonState[i] == HIGH))
       {
         MIDI.sendNoteOn(i + litStart, 120, litChan);
-        counter++
+        counter++;
       }
       if ((i < dualCount) && (buttonState[i] != HIGH))
       {
         MIDI.sendNoteOff(i + litStart, 0, litChan);
-        counter--
+        counter--;
       }
 
       // Easter egg ON trigger
