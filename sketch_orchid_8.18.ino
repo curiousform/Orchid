@@ -8,6 +8,10 @@ int bounceInterval = 1000;
 // debouncer for each sensor pin used
 Bounce bouncer[30] = Bounce();
 
+//  number of ms delay for on and off switch
+int delTime = 50;
+
+
 // Pin of first sensor
 int pinStart = 2;
 
@@ -77,6 +81,7 @@ void loop()
     if (bouncer[i].changed())
     {      
       buttonState[i] = bouncer[i].read();
+      
       // Pin pairing logic (Quantum Enganglement)
       if ((i < multiCount))
       {
@@ -93,6 +98,7 @@ void loop()
           }
         }
       }
+      
 
       // If somebody sits down on any sensor thats non easter egg
       // Then send lighting midi note
@@ -121,9 +127,11 @@ void loop()
         MIDI.sendNoteOff(i + eEgg - dualCount + eEggCount, 0, eEggChan);
       }
 
+
+      // Audio layer count trigger
       for (int i = 0; i < layerCount-1; i++)
       {
-        if(layer[i] <= counter < layer[i + 1])
+        if (layer[i] <= counter && counter < layer[i + 1])
         {
           MIDI.sendNoteOn(i + audStart, 120, audChan);
           MIDI.sendNoteOff(i + audStart, 0, audChan);
@@ -134,15 +142,15 @@ void loop()
           MIDI.sendNoteOff(i + audStart + layerCount, 0, audChan);
          }
        }
-     if (layer[5] == counter)
+     if (layer[layerCount-1] == counter)
      {
-      MIDI.sendNoteOn(5 + audStart, 120, audChan);
-      MIDI.sendNoteOff(5 + audStart, 0, audChan);
+      MIDI.sendNoteOn(layerCount-1 + audStart, 120, audChan);
+      MIDI.sendNoteOff(layerCount-1 + audStart, 0, audChan);
      }
      else
      {
-      MIDI.sendNoteOn(5 + audStart + layerCount, 120, audChan);
-      MIDI.sendNoteOff(5 + audStart + layerCount, 0, audChan);
+      MIDI.sendNoteOn(layerCount-1 + audStart + layerCount, 120, audChan);
+      MIDI.sendNoteOff(layerCount-1 + audStart + layerCount, 0, audChan);
      }
     }
   }
