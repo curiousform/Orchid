@@ -47,7 +47,7 @@ int eEgg = 100;
 //  Start MIDI note for lighting signals
 int litStart = 60;
 //  Start MIDI note for audio signals
-int audStart = 60;
+int audStart = 40;
 
 //  Counter var for how many people are sitting down
 int counter = 0;
