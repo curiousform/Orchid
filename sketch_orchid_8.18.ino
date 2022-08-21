@@ -4,7 +4,7 @@
 MIDI_CREATE_DEFAULT_INSTANCE();
 
 // bounce time in ms
-int bounceInterval = 1000;
+int bounceInterval = 200;
 // debouncer for each sensor pin used
 Bounce bouncer[30] = Bounce();
 
@@ -51,11 +51,12 @@ int audStart = 60;
 
 //  Counter var for how many people are sitting down
 int counter = 0;
+int lastCounter = 0;
 
 //  COUNTER THRESHOLDS FOR ADDING MORE AUDIO LAYERS
-int layer[6] = {2,4,8,12,18,24};//24 is for party mode
-int layerCount = sizeof(layer);
-
+int layer[] = {2, 4, 8, 12, 18, 24}; //24 is for party mode
+int layerCount = sizeof(layer) / sizeof(int);
+int trend;
 
 void setup()
 {
@@ -67,21 +68,24 @@ void setup()
     pinMode(i + pinStart, INPUT);
     bouncer[i].attach(i + pinStart, INPUT);
     bouncer[i].interval(bounceInterval);
+    buttonState[i] = bouncer[i].read();
+    if ((i < dualCount) && (buttonState[i] == HIGH))
+    {
+      counter++;
+    }
   }
 }
 
 void loop()
 {
-
-  
   for (int i = 0; i < pinCount; i++)
   {
     bouncer[i].update();
-   
+
     if (bouncer[i].changed())
-    {      
+    {
       buttonState[i] = bouncer[i].read();
-      
+
       // Pin pairing logic (Quantum Enganglement)
       if ((i < multiCount))
       {
@@ -98,7 +102,7 @@ void loop()
           }
         }
       }
-      
+
 
       // If somebody sits down on any sensor thats non easter egg
       // Then send lighting midi note
@@ -126,32 +130,32 @@ void loop()
         MIDI.sendNoteOn(i + eEgg - dualCount + eEggCount, 120, eEggChan);
         MIDI.sendNoteOff(i + eEgg - dualCount + eEggCount, 0, eEggChan);
       }
-
-
-      // Audio layer count trigger
-      for (int i = 0; i < layerCount-1; i++)
-      {
-        if (layer[i] <= counter && counter < layer[i + 1])
-        {
-          MIDI.sendNoteOn(i + audStart, 120, audChan);
-          MIDI.sendNoteOff(i + audStart, 0, audChan);
-        }
-        else
-        {
-          MIDI.sendNoteOn(i + audStart + layerCount, 120, audChan);
-          MIDI.sendNoteOff(i + audStart + layerCount, 0, audChan);
-         }
-       }
-     if (layer[layerCount-1] == counter)
-     {
-      MIDI.sendNoteOn(layerCount-1 + audStart, 120, audChan);
-      MIDI.sendNoteOff(layerCount-1 + audStart, 0, audChan);
-     }
-     else
-     {
-      MIDI.sendNoteOn(layerCount-1 + audStart + layerCount, 120, audChan);
-      MIDI.sendNoteOff(layerCount-1 + audStart + layerCount, 0, audChan);
-     }
     }
   }
+
+
+  // Audio layer count trigger
+
+  if (counter != lastCounter)
+  {
+    trend = counter - lastCounter;
+
+    for (int i = 0; i < layerCount; i++)
+    {
+      if (trend > 0 && counter == layer[i])
+      {
+        //item is increasing and equal to threshold
+        MIDI.sendNoteOn(i + audStart, 120, audChan);
+        MIDI.sendNoteOff(i + audStart, 0, audChan);
+      }
+      else if (trend < 0 && counter == (layer[i] - 1))
+      {
+        // item is decreasing and dropping threshold level
+        MIDI.sendNoteOn(i + audStart + layerCount, 120, audChan);
+        MIDI.sendNoteOff(i + audStart + layerCount, 0, audChan);
+      }
+
+    }
+  }
+  lastCounter = counter;
 }
