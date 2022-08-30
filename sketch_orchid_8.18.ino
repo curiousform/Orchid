@@ -57,12 +57,13 @@ const int layerCount = sizeof(layer) / sizeof(int);
 int trend = 0;
 
 long layerTimer[layerCount];
-int deferredAudMidiNote[layerCount];
+int deferredAudMidiNote[layerCount - 1];
 
 long lastRandomize = millis();
-long randomizeInterval = 30 * 60 * 1000;                                    //this is the time it takes for the tracks to be shuffled
+long randomizeInterval = 18000000;  //12000 debug time                             //this is the time it takes for the tracks to be shuffled
 int randomOffset[] = {0, 1, 2, 3, 4};
 bool multiVal = false;
+bool randomVar = false;
 
 void setup()
 {
@@ -84,6 +85,8 @@ void setup()
 
 void loop()
 {
+
+
   for (int i = 0; i < pinCount; i++)
   {
     bouncer[i].update();
@@ -118,7 +121,9 @@ void loop()
       else if ((i < dualCount) && (buttonState[i] != HIGH))
       {
         MIDI.sendNoteOff(i + litStart, 0, litChan);
-        counter--;
+        if (counter != 0) {
+          counter--;
+        }
       }
 
       // Easter egg ON trigger
@@ -140,30 +145,32 @@ void loop()
   // Audio layer count trigger
   // Implement nonblocking delay on counter decrement
 
-  if (counter != lastCounter)
+  if (counter != lastCounter || randomVar == true)
   {
     trend = counter - lastCounter;
 
     for (int i = 0; i < layerCount; i++)
     {
-      if (trend > 0 && counter == layer[i] && i < layerCount - 1)
+      if (((trend > 0 && counter == layer[i]) || (randomVar == true && counter >= layer[i])) && i < layerCount - 1)
       {
         // item is increasing and equal to threshold
         MIDI.sendNoteOn( audStart + randomOffset[i], 120, audChan);
         MIDI.sendNoteOff( audStart + randomOffset[i], 0, audChan);
       }
-      else if (trend > 0 && counter == layer[i] && i == layerCount - 1)
+      else if ((trend > 0 || randomVar == true) && counter == layer[i] && i == layerCount - 1 )
       {
         MIDI.sendNoteOn(i +  audStart, 120, audChan);
         MIDI.sendNoteOff(i + audStart, 0, audChan);
       }
-
       else if (trend < 0 && counter == (layer[i] - 1))
       {
         // item is decreasing and dropping threshold level
         deferredAudMidiNote[i] = (randomOffset[i] + audStart + layerCount);
         layerTimer[i] = millis();
       }
+    }
+    if (randomVar == true) {
+      randomVar = false;
     }
   }
 
@@ -172,7 +179,6 @@ void loop()
     if (millis() - layerTimer[i] >= counterInterval && deferredAudMidiNote[i] != 0)
     {
       MIDI.sendNoteOn(deferredAudMidiNote[i], 120, audChan);
-      delay(100);
       MIDI.sendNoteOff(deferredAudMidiNote[i], 0, audChan);
       deferredAudMidiNote[i] = 0;
     }
@@ -182,20 +188,32 @@ void loop()
   {
     randomSeed(analogRead(0));
     lastRandomize = millis();
-
-    if (trend > 0 && counter < layer[layerCount - 1] || trend == 0)
+    for (int i = 0; i < layerCount; i++)
     {
-      randomOffset[layerCount] = random(0, layerCount - 1);
+      MIDI.sendNoteOn((i + audStart + layerCount), 120, audChan);
+      MIDI.sendNoteOff((i + audStart + layerCount), 0, audChan);
+    }
+      randomVar = true;
+      MIDI.sendNoteOn(69, 120, 6);
 
+      //Randomize
       for (int a = 0; a < layerCount - 1; a++)
       {
-        int r = random(a, layerCount - 1); // dont remember syntax just now, random from a to 8 included.
+        int r = random(a, layerCount - 1);
         int temp = randomOffset[a];
         randomOffset[a] = randomOffset[r];
         randomOffset[r] = temp;
       }
+
+      //Send new audio on messages
     }
+    lastCounter = counter;
   }
 
-  lastCounter = counter;
-}
+//TODO::
+//Control button
+//Startup sequence
+//Weird thing where it plays all of them at first
+//call randomization code at startup. turn on layers at startup as well
+//maybe create initialization function that can run at randomization and in setup
+//Easter eggs (bome or code)
