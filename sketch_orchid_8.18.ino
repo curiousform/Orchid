@@ -64,6 +64,9 @@ long randomizeInterval = 18000000;  //12000 debug time                          
 int randomOffset[] = {0, 1, 2, 3, 4};
 bool multiVal = false;
 bool randomVar = false;
+bool control = false;
+bool eggOn[5];                           //check initial egg sensor state
+
 
 void setup()
 {
@@ -86,10 +89,24 @@ void setup()
 void loop()
 {
 
+  bouncer[pinCount - 1].update();
+  if (bouncer[pinCount - 1].changed())
+  {
+    buttonState[pinCount - 1] = bouncer[pinCount - 1].read();
+    if (buttonState[pinCount - 1] == HIGH)
+    {
+      control = true;
+    }
+    else
+    {
+      control = false;
+    }
+  }
 
-  for (int i = 0; i < pinCount; i++)
+  for (int i = 0; i < pinCount - 1; i++)
   {
     bouncer[i].update();
+
 
     if (bouncer[i].changed())
     {
@@ -127,19 +144,28 @@ void loop()
       }
 
       // Easter egg ON trigger
-      if ((i >= dualCount) && (buttonState[i] == HIGH))
+      if (i >= dualCount)
       {
-        MIDI.sendNoteOn(i + eEgg - dualCount, 120, eEggChan);
-        MIDI.sendNoteOff(i + eEgg - dualCount, 0, eEggChan);
-      }
+        buttonState[pinCount - 1] = bouncer[pinCount - 1].read();
 
-      // Easter egg OFF trigger
-      else if ((i >= dualCount) && (buttonState[i] != HIGH))
-      {
-        MIDI.sendNoteOn(i + eEgg - dualCount + eEggCount, 120, eEggChan);
-        MIDI.sendNoteOff(i + eEgg - dualCount + eEggCount, 0, eEggChan);
+        if (control && buttonState[i] == HIGH)
+        {
+          eggOn [i] = true;
+          // add isOn variable for each easter egg so we can check if its on to stop spamming off messages
+          MIDI.sendNoteOn(i + eEgg - dualCount, 66, eEggChan);
+          MIDI.sendNoteOff(i + eEgg - dualCount, 66, eEggChan);
+        }
+
+        // Easter egg OFF trigger
+        else if ((buttonState[i] != HIGH || !control) && eggOn[i]) //only send this if isOn variable is on
+        {
+          eggOn [i] = false;
+          MIDI.sendNoteOn(i + eEgg - dualCount + eEggCount, 120, eEggChan);
+          MIDI.sendNoteOff(i + eEgg - dualCount + eEggCount, 0, eEggChan);
+        }
       }
     }
+
   }
 
   // Audio layer count trigger
@@ -193,27 +219,19 @@ void loop()
       MIDI.sendNoteOn((i + audStart + layerCount), 120, audChan);
       MIDI.sendNoteOff((i + audStart + layerCount), 0, audChan);
     }
-      randomVar = true;
-      MIDI.sendNoteOn(69, 120, 6);
+    randomVar = true;
+    MIDI.sendNoteOn(69, 120, 6);
 
-      //Randomize
-      for (int a = 0; a < layerCount - 1; a++)
-      {
-        int r = random(a, layerCount - 1);
-        int temp = randomOffset[a];
-        randomOffset[a] = randomOffset[r];
-        randomOffset[r] = temp;
-      }
-
-      //Send new audio on messages
+    //Randomize
+    for (int a = 0; a < layerCount - 1; a++)
+    {
+      int r = random(a, layerCount - 1);
+      int temp = randomOffset[a];
+      randomOffset[a] = randomOffset[r];
+      randomOffset[r] = temp;
     }
-    lastCounter = counter;
-  }
 
-//TODO::
-//Control button
-//Startup sequence
-//Weird thing where it plays all of them at first
-//call randomization code at startup. turn on layers at startup as well
-//maybe create initialization function that can run at randomization and in setup
-//Easter eggs (bome or code)
+    //Send new audio on messages
+  }
+  lastCounter = counter;
+}
