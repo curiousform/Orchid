@@ -3,6 +3,7 @@
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
+bool sentStart = false;
 // bounce time in ms
 int bounceInterval = 200;                                                     //this is the time delay on each sensor trigger
 // debouncer for each sensor pin used
@@ -62,11 +63,14 @@ int deferredAudMidiNote[layerCount - 1];
 long lastRandomize = millis();
 long randomizeInterval = 18000000;  //12000 debug time                             //this is the time it takes for the tracks to be shuffled
 int randomOffset[] = {0, 1, 2, 3, 4};
-bool multiVal = false;
+bool multiVal[12] = {false};
 bool randomVar = false;
 bool control = false;
 bool eggOn[5];                           //check initial egg sensor state
 
+bool partyOn = false;
+long partyTimer = millis();
+long partyInterval = 60000;            //change to (300000)
 
 void setup()
 {
@@ -83,12 +87,38 @@ void setup()
     {
       counter++;
     }
-  }
+  }   delay(60000);
+      MIDI.sendNoteOn(101, 120, 3); // value
+      MIDI.sendNoteOff(101, 0, 3);
+      //hit enter
+      delay(1000);
+      MIDI.sendNoteOn(99, 120, 3); // value
+      MIDI.sendNoteOff(99, 0, 3);
+      delay(20000);
+      //play on off
+      MIDI.sendNoteOn(100, 120, 3); // value
+      MIDI.sendNoteOff(100, 0, 3);
+  
 }
 
 void loop()
 {
-
+//  if(sentStart == false){
+//    if(millis() >= (1000 * 60 * 2)){
+//      //select ablton on off
+//      MIDI.sendNoteOn(101, 120, 3); // value
+//      MIDI.sendNoteOff(101, 0, 3);
+//      //hit enter
+//      delay(1000);
+//      MIDI.sendNoteOn(99, 120, 3); // value
+//      MIDI.sendNoteOff(99, 0, 3);
+//      delay(1000);
+//      //play on off
+//      MIDI.sendNoteOn(100, 120, 3); // value
+//      MIDI.sendNoteOff(100, 0, 3);
+//      sentStart = true;
+//    }
+//  }
   bouncer[pinCount - 1].update();
   if (bouncer[pinCount - 1].changed())
   {
@@ -103,7 +133,7 @@ void loop()
     }
   }
 
-  for (int i = 0; i < pinCount - 1; i++)
+  for (int i = 0; i < pinCount - 2; i++)
   {
     bouncer[i].update();
 
@@ -119,12 +149,12 @@ void loop()
         {
           // sendNoteX(note, velocity, midiChannel)
           MIDI.sendNoteOn(i + litStart, 120, multiChan);
-          multiVal = true;
+          multiVal[i] = true;
         }
-        else if (multiVal)
+        else if (multiVal[i])
         {
           MIDI.sendNoteOff(i + litStart, 0, multiChan);
-          multiVal = false;
+          multiVal[i] = false;
         }
       }
 
@@ -165,10 +195,9 @@ void loop()
         }
       }
     }
-
   }
 
-  // Audio layer count trigger
+ // Audio layer count trigger
   // Implement nonblocking delay on counter decrement
 
   if (counter != lastCounter || randomVar == true)
@@ -200,7 +229,8 @@ void loop()
     }
   }
 
-  for (int i = 0; i < layerCount - 1; i++)
+
+  for (int i = 0; i < layerCount - 2; i++)
   {
     if (millis() - layerTimer[i] >= counterInterval && deferredAudMidiNote[i] != 0)
     {
@@ -220,7 +250,6 @@ void loop()
       MIDI.sendNoteOff((i + audStart + layerCount), 0, audChan);
     }
     randomVar = true;
-    MIDI.sendNoteOn(69, 120, 6);
 
     //Randomize
     for (int a = 0; a < layerCount - 1; a++)
